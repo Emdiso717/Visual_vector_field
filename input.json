@@ -1,0 +1,18 @@
+{
+  "path_of_mesh": "coherent1012/2.obj",
+  "path_of_grad": "coherent1012/2.txt",
+
+  "grad_line_color": [ 0.0, 0.0, 0.0 ],
+  "grad_line_length": 1,
+
+  "point_color": [ 1.0, 0.0, 0.0 ],
+  "num_points": 10,
+  "point_size": 3,
+  "length_of_point": 1,
+
+  "moving_point_step": 0.5,
+  "time_per_step": 0.35,
+  "camera_zoom": 2,
+  "time_restart": 20
+
+}
