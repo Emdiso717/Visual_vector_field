@@ -78,6 +78,24 @@ double graph::cal_next_edge_point(int i, int a, int b)
     double t3 = t1 / t2;
     return t3;
 }
+void graph::add_point_in_empty_cover()
+{
+    int a1 = cover_without_point.size();
+    int a2 = point_deleted.size();
+    int num_add = min(a1, a2);
+    for (int i = 0; i < num_add; i++) {
+        int new_point_number = point_deleted[i];
+        int new_cover_number = cover_without_point[i];
+        point_in_cover[new_cover_number].push_back(new_point_number);
+        moving_point_direct.row(new_point_number) = K.row(new_cover_number);
+        moving_point.row(new_point_number) = C.row(new_cover_number);
+        moving_point_cover(new_point_number, 0) = new_cover_number;
+        before_cover(new_point_number, 0) = -1;
+        cal_edge_point(new_point_number);
+    }
+    point_deleted.erase(point_deleted.begin(), point_deleted.begin()+ num_add);
+    cover_without_point.erase(cover_without_point.begin(), cover_without_point.begin()+ num_add);
+}
 graph::graph(string path)
 {   
     //read from file
@@ -108,6 +126,11 @@ graph::graph(string path)
     moving_point = C;
     moving_point_cover = Eigen::MatrixXi(F.rows(), 1);
     before_cover = Eigen::MatrixXi(F.rows(), 1);
+
+    //init of points in a cover
+    point_in_cover = new vector<int>[F.rows()];
+
+
     //find neighbors
     graph::get_neighbor();
     //find the first edge points
@@ -115,6 +138,8 @@ graph::graph(string path)
     for (int i = 0; i < F.rows(); i++) {
         moving_point_cover(i, 0) = i;
         before_cover(i, 0) = -1;
+        //init the first cover condition
+        (point_in_cover[i]).push_back(i);
     }
     for (int i = 0; i < F.rows(); i++) {
         graph::cal_edge_point(i);
@@ -241,11 +266,19 @@ void graph::cal_edge_point(int i)
         }
 
     }
-
+    auto newEnd = std::remove(point_in_cover[moving_point_cover(i, 0)].begin(), point_in_cover[moving_point_cover(i, 0)].end(), i);
+    point_in_cover[moving_point_cover(i, 0)].erase(newEnd, point_in_cover[moving_point_cover(i, 0)].end());
+    if (point_in_cover[moving_point_cover(i, 0)].size() == 0) {
+        auto temp_element = find(cover_without_point.begin(), cover_without_point.end(), moving_point_cover(i, 0));
+        if (temp_element == cover_without_point.end()) {
+            cover_without_point.push_back(moving_point_cover(i, 0));
+        }
+    }
     //¸ßÊ¸Á¿±ß
     moving_point_direct.row(i) = RowVector3d(0, 0, 0);
     moving_point.row(i) = RowVector3d(0, 0, 0);
     edge_point.row(i) = RowVector3d(0, 0, 0);
+    point_deleted.push_back(i);
 }
 
 void graph::check_point_in_edge()
@@ -257,22 +290,50 @@ void graph::check_point_in_edge()
         RowVector3d v1 = moving_point.row(i);
         RowVector3d v2 = edge_point.row(i);
         if ((v1 - v2).norm() <= B.moving_point_step) {
-            //moving_times(i, 0)= moving_times(i, 0)+1;
+            //delete from the former cover
+            auto newEnd = std::remove(point_in_cover[moving_point_cover(i, 0)].begin(), point_in_cover[moving_point_cover(i, 0)].end(), i);
+            (point_in_cover[moving_point_cover(i, 0)]).erase(newEnd, point_in_cover[moving_point_cover(i, 0)].end());
+            //add to the new cover
+            (point_in_cover[next_cover(i, 0)]).push_back(i);
+            auto find_element = find(cover_without_point.begin(), cover_without_point.end(), next_cover(i, 0));
+            if (find_element != cover_without_point.end()) {
+                cover_without_point.erase(find_element);
+            }
+            if (point_in_cover[moving_point_cover(i, 0)].size() == 0) {
+                auto temp_element = find(cover_without_point.begin(), cover_without_point.end(), moving_point_cover(i, 0));
+                if (temp_element == cover_without_point.end()) {
+                    cover_without_point.push_back(moving_point_cover(i, 0));
+                }
+            }
+            if (point_in_cover[next_cover(i, 0)].size() >= 5) {
+                auto newEnd = std::remove(point_in_cover[next_cover(i, 0)].begin(), point_in_cover[next_cover(i, 0)].end(), i);
+                (point_in_cover[next_cover(i, 0)]).erase(newEnd, point_in_cover[next_cover(i, 0)].end());
+                moving_point_direct.row(i) = RowVector3d(0, 0, 0);
+                moving_point.row(i) = RowVector3d(0, 0, 0);
+                edge_point.row(i) = RowVector3d(0, 0, 0);
+                point_deleted.push_back(i);
+                continue;
+            }
             moving_point.row(i) = edge_point.row(i);
             moving_point_cover(i, 0) = next_cover(i, 0);
             moving_point_direct.row(i) = K.row(moving_point_cover(i, 0));
             cal_edge_point(i);
         }
     }
+    add_point_in_empty_cover();
 }
 
 void graph::restart()
 {
     moving_point = C;
     moving_point_direct = K;
+    point_deleted.clear();
+    cover_without_point.clear();
     for (int i = 0; i < F.rows(); i++) {
         moving_point_cover(i, 0) = i;
         before_cover(i, 0) = -1;
+        point_in_cover[i].clear();
+        point_in_cover[i].push_back(i);
     }
     for (int i = 0; i < F.rows(); i++) {
         graph::cal_edge_point(i);

@@ -13,6 +13,6 @@
   "moving_point_step": 0.5,
   "time_per_step": 0.35,
   "camera_zoom": 2,
-  "time_restart": 20
+  "time_restart": 40
 
 }

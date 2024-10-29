@@ -67,10 +67,16 @@ class graph
 		Eigen::MatrixXi next_cover;
 		Eigen::MatrixXd edge_point;
 		Eigen::MatrixXi before_cover;
-		
+
+		/*记录每个面中的点*/
+		vector<int> *point_in_cover;
+		vector<int> point_deleted;
+		vector<int> cover_without_point;
+
 		basic B;
 		void get_neighbor();
 		double cal_next_edge_point(int i, int a, int b);
+		void add_point_in_empty_cover();
 	public:
 		graph(string path);
 		void grad();
