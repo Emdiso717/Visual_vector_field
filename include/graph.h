@@ -28,6 +28,7 @@ struct basic
 	double moving_point_step;
 	string path_of_mesh;
 	string path_of_grad;
+	int show_grad_line;
 	basic() {
 		ifstream file("../input.json");
 		string root = "../data/";
@@ -43,9 +44,10 @@ struct basic
 		moving_point_step= json_obj["moving_point_step"];
 		path_of_mesh = json_obj["path_of_mesh"];
 		path_of_grad = json_obj["path_of_grad"];
+		show_grad_line = json_obj["show_grad_line"];
 		path_of_mesh = root + path_of_mesh;
 		path_of_grad = root + path_of_grad;
-		cout << path_of_mesh << endl;
+		cout << "Files that need to be rendered:" << path_of_mesh << endl;
 	}
 };
 
@@ -89,7 +91,7 @@ class graph
 		void check_point_in_edge();
 		void restart();
 
-
+		//use for debug
 		void debug(igl::opengl::glfw::Viewer& viewer);
 
 };

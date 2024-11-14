@@ -70,7 +70,6 @@ void graph::get_neighbor()
     }
 }
 
-
 double graph::cal_next_edge_point(int i, int a, int b)
 {
     double t1 = (moving_point(i, 1) - V(a, 1)) * (V(b, 2) - moving_point(i, 2)) - (moving_point(i, 2) - V(a, 2)) * (V(b, 1) - moving_point(i, 1));
@@ -78,6 +77,7 @@ double graph::cal_next_edge_point(int i, int a, int b)
     double t3 = t1 / t2;
     return t3;
 }
+
 void graph::add_point_in_empty_cover()
 {
     int a1 = cover_without_point.size();
@@ -96,6 +96,7 @@ void graph::add_point_in_empty_cover()
     point_deleted.erase(point_deleted.begin(), point_deleted.begin()+ num_add);
     cover_without_point.erase(cover_without_point.begin(), cover_without_point.begin()+ num_add);
 }
+
 graph::graph(string path)
 {   
     //read from file
@@ -146,8 +147,6 @@ graph::graph(string path)
     }
 }
 
-
-
 void graph::grad()
 {
     for (int i = 0; i < F.rows(); i++)
@@ -177,16 +176,20 @@ void graph::grad()
         K.row(i) = grad;
     }
 }
+
 void graph::show_graph(igl::opengl::glfw::Viewer& viewer)
 {
     viewer.data().set_mesh(V, F);
     viewer.data().set_face_based(true);
 }
+
 void graph::show_grad(igl::opengl::glfw::Viewer& viewer)
 {
     viewer.data().set_data(H);
-   viewer.data().add_edges(C, C + B.grad_line_length * K, B.grad_line_color);
+    if(B.show_grad_line==1)
+        viewer.data().add_edges(C, C + B.grad_line_length * K, B.grad_line_color);
 }
+
 void graph::show_point(igl::opengl::glfw::Viewer& viewer)
 {
     viewer.data().point_size = B.point_size;
@@ -196,13 +199,13 @@ void graph::show_point(igl::opengl::glfw::Viewer& viewer)
         viewer.data().add_points(moving_point - dis_each_point * moving_point_direct * i, B.point_color + Eigen::RowVector3d(0,p_color,p_color)*i);
     }
 }
+
 void graph::move_point(igl::opengl::glfw::Viewer& viewer)
 {
     moving_point = moving_point + moving_point_direct * B.moving_point_step;
     viewer.data().clear_points();
     graph::show_point(viewer);
 }
-
 
 void graph::cal_edge_point(int i)
 {

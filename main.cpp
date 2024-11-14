@@ -7,20 +7,16 @@ int main(int argc, char *argv[])
    config Config;
    string path = Config.path_of_mesh;
    graph G(path);
-   
-
   // Plot the mesh
   igl::opengl::glfw::Viewer viewer;
   viewer.core().camera_zoom = Config.camera_zoom;
   G.show_graph(viewer);
   G.show_grad(viewer);
-
-  //G.debug(viewer);
-  //G.show_point(viewer);
-
+  G.show_point(viewer);
+  // Define timing movements and resets
   double last_time = glfwGetTime();
   double start_tiem = glfwGetTime();
-
+  //Modify render operation
   viewer.callback_pre_draw = [&](igl::opengl::glfw::Viewer& viewer) {
       viewer.core().is_animating = true;
       double t = glfwGetTime();
@@ -37,6 +33,5 @@ int main(int argc, char *argv[])
       }
       return false; 
    };
-
   viewer.launch();
 }
