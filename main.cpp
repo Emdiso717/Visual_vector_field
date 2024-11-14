@@ -16,10 +16,7 @@ int main(int argc, char *argv[])
   G.show_grad(viewer);
 
   //G.debug(viewer);
- // G.show_point(viewer);
-
-
-  
+  //G.show_point(viewer);
 
   double last_time = glfwGetTime();
   double start_tiem = glfwGetTime();
@@ -41,8 +38,5 @@ int main(int argc, char *argv[])
       return false; 
    };
 
-
-
-  
   viewer.launch();
 }

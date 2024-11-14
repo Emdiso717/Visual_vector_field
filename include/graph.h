@@ -11,6 +11,7 @@
 #include<vector>
 #include <igl/ray_mesh_intersect.h>
 #include <nlohmann/json.hpp>
+#include <random>
 
 using json = nlohmann::json;
 using namespace Eigen;

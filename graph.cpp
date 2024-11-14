@@ -185,17 +185,7 @@ void graph::show_graph(igl::opengl::glfw::Viewer& viewer)
 void graph::show_grad(igl::opengl::glfw::Viewer& viewer)
 {
     viewer.data().set_data(H);
-   // int num_colors = 256;
-   // Eigen::MatrixXd custom_colormap(num_colors, 3);
-   // for (int i = 0; i < num_colors; ++i) {
-   //     float t = static_cast<float>(i) / (num_colors - 1); 
-   //     custom_colormap(i, 0) = 1.0f - t; 
-   //     custom_colormap(i, 1) = 1.0f - t; 
-   //     custom_colormap(i, 2) = 2.0f * t; 
-   // }
-   // viewer.data().set_colormap(custom_colormap);
    viewer.data().add_edges(C, C + B.grad_line_length * K, B.grad_line_color);
-
 }
 void graph::show_point(igl::opengl::glfw::Viewer& viewer)
 {
@@ -266,15 +256,9 @@ void graph::cal_edge_point(int i)
         }
 
     }
+    //如果没找到 交点 或者 边的标量值过大 直接删除
     auto newEnd = std::remove(point_in_cover[moving_point_cover(i, 0)].begin(), point_in_cover[moving_point_cover(i, 0)].end(), i);
     point_in_cover[moving_point_cover(i, 0)].erase(newEnd, point_in_cover[moving_point_cover(i, 0)].end());
-    if (point_in_cover[moving_point_cover(i, 0)].size() == 0) {
-        auto temp_element = find(cover_without_point.begin(), cover_without_point.end(), moving_point_cover(i, 0));
-        if (temp_element == cover_without_point.end()) {
-            cover_without_point.push_back(moving_point_cover(i, 0));
-        }
-    }
-    //高矢量边
     moving_point_direct.row(i) = RowVector3d(0, 0, 0);
     moving_point.row(i) = RowVector3d(0, 0, 0);
     edge_point.row(i) = RowVector3d(0, 0, 0);
@@ -305,14 +289,24 @@ void graph::check_point_in_edge()
                     cover_without_point.push_back(moving_point_cover(i, 0));
                 }
             }
-            if (point_in_cover[next_cover(i, 0)].size() >= 5) {
-                auto newEnd = std::remove(point_in_cover[next_cover(i, 0)].begin(), point_in_cover[next_cover(i, 0)].end(), i);
-                (point_in_cover[next_cover(i, 0)]).erase(newEnd, point_in_cover[next_cover(i, 0)].end());
-                moving_point_direct.row(i) = RowVector3d(0, 0, 0);
-                moving_point.row(i) = RowVector3d(0, 0, 0);
-                edge_point.row(i) = RowVector3d(0, 0, 0);
-                point_deleted.push_back(i);
-                continue;
+            if (point_in_cover[moving_point_cover(i, 0)].size() >= 5) {
+                //随机删除一个点
+                std::random_device rd;
+                std::mt19937 gen(rd());
+                std::uniform_int_distribution<int> distrib(0, point_in_cover[moving_point_cover(i, 0)].size()-1);
+                int to_be_delete = distrib(gen);
+                int point_id = point_in_cover[moving_point_cover(i, 0)][to_be_delete];
+                //cout << to_be_delete<<" "<< point_id << endl;
+                //删除点
+                auto newEnd = std::remove(point_in_cover[moving_point_cover(i, 0)].begin(), point_in_cover[moving_point_cover(i, 0)].end(), point_id);
+                (point_in_cover[moving_point_cover(i, 0)]).erase(newEnd, point_in_cover[moving_point_cover(i, 0)].end());
+                moving_point_direct.row(point_id) = RowVector3d(0, 0, 0);
+                moving_point.row(point_id) = RowVector3d(0, 0, 0);
+                edge_point.row(point_id) = RowVector3d(0, 0, 0);
+                point_deleted.push_back(point_id);
+                if (i == to_be_delete) {
+                    continue;
+                }
             }
             moving_point.row(i) = edge_point.row(i);
             moving_point_cover(i, 0) = next_cover(i, 0);
