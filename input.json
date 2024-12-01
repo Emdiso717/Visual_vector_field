@@ -1,9 +1,9 @@
 {
   
-  "path_of_mesh": "coherent1012/2.obj",
-  "path_of_grad": "coherent1012/2.txt",
+  "path_of_mesh": "coherent1012/3.obj",
+  "path_of_grad": "coherent1012/3.txt",
 
-  "show_grad_line": 0,
+  "show_grad_line": 1,
   "grad_line_color": [ 0.0, 0.0, 0.0 ],
   "grad_line_length": 1,
 

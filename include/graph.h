@@ -8,10 +8,13 @@
 #include <igl/readOFF.h>
 #include <imgui.h>
 #include <Eigen/Core>
-#include<vector>
+#include <vector>
 #include <igl/ray_mesh_intersect.h>
 #include <nlohmann/json.hpp>
 #include <random>
+#include <cuda_runtime.h>
+#include <chrono>
+
 
 using json = nlohmann::json;
 using namespace Eigen;
@@ -56,20 +59,23 @@ class graph
 {
 	private:
 		/*图形属性 不发生改变*/
-		Eigen::MatrixXd V;
-		Eigen::MatrixXi F;
-		Eigen::MatrixXd K;
-		Eigen::MatrixXd C;
-		Eigen::MatrixXd H;
-		Eigen::MatrixXi neighbor;
+		Eigen::MatrixXd V;	//点
+		Eigen::MatrixXi F;	//面
+		Eigen::MatrixXd K;	//面向量
+		Eigen::MatrixXd C;	//中点
+		Eigen::MatrixXd H;	//点矢量值
+		Eigen::MatrixXi neighbor;	//面邻居
+		int* neighbor_gpu;
+		int* f;
+		double * v;
 
 		/*运动点的属性 变化*/
-		Eigen::MatrixXd moving_point_direct;
-		Eigen::MatrixXd moving_point;
-		Eigen::MatrixXi moving_point_cover;
-		Eigen::MatrixXi next_cover;
-		Eigen::MatrixXd edge_point;
-		Eigen::MatrixXi before_cover;
+		int* next_cover_gpu;	//点运动下一个面
+		int* before_cover_gpu, * moving_point_cover_gpu;	//点运动前一个面，现在的面
+		double* mp_gpu, * mpd_gpu;	//点的坐标，和运动方向
+		double* ep_gpu ;	//点与下一个相交边的交点
+		int *in_edge;	//判断是否到边
+	
 
 		/*记录每个面中的点*/
 		vector<int> *point_in_cover;
@@ -91,8 +97,6 @@ class graph
 		void check_point_in_edge();
 		void restart();
 
-		//use for debug
-		void debug(igl::opengl::glfw::Viewer& viewer);
 
 };
 

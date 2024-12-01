@@ -1,5 +1,8 @@
 
 #include "graph.h"
+extern "C" void moving_point_gpu(int row, double* mp_gpu, double* mpd_gpu, double moving_point_step, 
+    double* ep_gpu, int* in_edge, int* moving_point_cover_gpu, int* next_cover_gpu, int* before_cover_gpu, 
+    int* f, double* v, int rowv, int* neighbor_gpu);
 
 void graph::get_neighbor()
 {
@@ -72,6 +75,8 @@ void graph::get_neighbor()
 
 double graph::cal_next_edge_point(int i, int a, int b)
 {
+    Eigen::Map<Eigen::MatrixXd> moving_point(mp_gpu, F.rows(), 3);
+    Eigen::Map<Eigen::MatrixXd>moving_point_direct(mpd_gpu, F.rows(), 3);
     double t1 = (moving_point(i, 1) - V(a, 1)) * (V(b, 2) - moving_point(i, 2)) - (moving_point(i, 2) - V(a, 2)) * (V(b, 1) - moving_point(i, 1));
     double t2 = (V(b, 1) - V(a, 1)) * moving_point_direct(i, 2) - (V(b, 2) - V(a, 2)) * moving_point_direct(i, 1);
     double t3 = t1 / t2;
@@ -80,6 +85,10 @@ double graph::cal_next_edge_point(int i, int a, int b)
 
 void graph::add_point_in_empty_cover()
 {
+    Eigen::Map<Eigen::MatrixXd> moving_point(mp_gpu, F.rows(), 3);
+    Eigen::Map<Eigen::MatrixXd>moving_point_direct(mpd_gpu, F.rows(), 3);
+    Eigen::Map<Eigen::MatrixXi> before_cover(before_cover_gpu, F.rows(), 1);
+    Eigen::Map<Eigen::MatrixXi> moving_point_cover(moving_point_cover_gpu, F.rows(), 1);
     int a1 = cover_without_point.size();
     int a2 = point_deleted.size();
     int num_add = min(a1, a2);
@@ -120,27 +129,51 @@ graph::graph(string path)
     grad();
     // find centers
     C = Eigen::MatrixXd(F.rows(), 3);
-    next_cover = Eigen::MatrixXi(F.rows(), 1);
+
+   
     igl::barycenter(V, F, C);
     //basic of moving points
-    moving_point_direct = K;
-    moving_point = C;
+    size_t size = F.rows() * F.cols() * sizeof(double);
+
+    cudaMallocManaged(&next_cover_gpu, F.rows() * sizeof(int));
+    Eigen::Map<Eigen::MatrixXi> next_cover(next_cover_gpu, F.rows(), 1);
+    next_cover = Eigen::MatrixXi(F.rows(), 1);
+
+    cudaMallocManaged(&mp_gpu, size);
+    cudaMallocManaged(&mpd_gpu, size);
+    cudaMemcpy(mp_gpu, C.data(), size, cudaMemcpyHostToDevice);
+    cudaMemcpy(mpd_gpu, K.data(), size, cudaMemcpyHostToDevice);
+
+    cudaMallocManaged(&f, size);
+    cudaMallocManaged(&v, V.rows() *V.cols() * sizeof(double));
+    cudaMemcpy(f, F.data(), F.rows() * F.cols() * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(v, V.data(), V.rows() * V.cols() * sizeof(double), cudaMemcpyHostToDevice);
+
+    cudaMallocManaged(&moving_point_cover_gpu, F.rows() * sizeof(int));
+    Eigen::Map<Eigen::MatrixXi> moving_point_cover(moving_point_cover_gpu, F.rows(), 1);
     moving_point_cover = Eigen::MatrixXi(F.rows(), 1);
+
+    cudaMallocManaged(&before_cover_gpu, F.rows() * sizeof(int));
+    Eigen::Map<Eigen::MatrixXi> before_cover(before_cover_gpu, F.rows(), 1);
     before_cover = Eigen::MatrixXi(F.rows(), 1);
 
     //init of points in a cover
     point_in_cover = new vector<int>[F.rows()];
 
-
     //find neighbors
     graph::get_neighbor();
+    cudaMallocManaged(&neighbor_gpu, F.rows() * F.cols() * sizeof(int));
+    cudaMemcpy(neighbor_gpu, neighbor.data(), F.rows() * F.cols() * sizeof(int), cudaMemcpyHostToDevice);
+
     //find the first edge points
-    edge_point = MatrixXd(F.rows(), 3);
+    cudaMallocManaged(&ep_gpu, size);
+    cudaMallocManaged(&in_edge, F.rows()* sizeof(int));
     for (int i = 0; i < F.rows(); i++) {
         moving_point_cover(i, 0) = i;
         before_cover(i, 0) = -1;
         //init the first cover condition
         (point_in_cover[i]).push_back(i);
+        in_edge[i] = 0;
     }
     for (int i = 0; i < F.rows(); i++) {
         graph::cal_edge_point(i);
@@ -192,6 +225,8 @@ void graph::show_grad(igl::opengl::glfw::Viewer& viewer)
 
 void graph::show_point(igl::opengl::glfw::Viewer& viewer)
 {
+    Eigen::Map<Eigen::MatrixXd> moving_point(mp_gpu, F.rows(), 3);
+    Eigen::Map<Eigen::MatrixXd>moving_point_direct(mpd_gpu, F.rows(), 3);
     viewer.data().point_size = B.point_size;
     double dis_each_point = B.length_of_point/B.num_points;
     float p_color = 1.0 / B.num_points;
@@ -202,13 +237,23 @@ void graph::show_point(igl::opengl::glfw::Viewer& viewer)
 
 void graph::move_point(igl::opengl::glfw::Viewer& viewer)
 {
-    moving_point = moving_point + moving_point_direct * B.moving_point_step;
+    Eigen::Map<Eigen::MatrixXd> moving_point(mp_gpu, F.rows(), 3);
+    Eigen::Map<Eigen::MatrixXd>moving_point_direct(mpd_gpu, F.rows(), 3);
+    Eigen::Map<Eigen::MatrixXi> moving_point_cover(moving_point_cover_gpu, F.rows(), 1);
+     moving_point_gpu(F.rows(), mp_gpu, mpd_gpu, B.moving_point_step, ep_gpu, in_edge, 
+         moving_point_cover_gpu, next_cover_gpu, before_cover_gpu,f,v,V.rows(), neighbor_gpu);
     viewer.data().clear_points();
     graph::show_point(viewer);
 }
 
 void graph::cal_edge_point(int i)
 {
+    Eigen::Map<Eigen::MatrixXd> moving_point(mp_gpu, F.rows(), 3);
+    Eigen::Map<Eigen::MatrixXd>moving_point_direct(mpd_gpu, F.rows(), 3);
+    Eigen::Map<Eigen::MatrixXd>edge_point(ep_gpu, F.rows(), 3);
+    Eigen::Map<Eigen::MatrixXi> moving_point_cover(moving_point_cover_gpu, F.rows(), 1);
+    Eigen::Map<Eigen::MatrixXi> before_cover(before_cover_gpu, F.rows(), 1);
+    Eigen::Map<Eigen::MatrixXi> next_cover(next_cover_gpu, F.rows(), 1);
     if (moving_point_direct(i,0)==0 && moving_point_direct(i, 1) == 0 && moving_point_direct(i, 2) == 0)
         return;
     //确定平面
@@ -270,13 +315,26 @@ void graph::cal_edge_point(int i)
 
 void graph::check_point_in_edge()
 {
+    Eigen::Map<Eigen::MatrixXd> moving_point(mp_gpu, F.rows(), 3);
+    Eigen::Map<Eigen::MatrixXd> moving_point_direct(mpd_gpu, F.rows(), 3);
+    Eigen::Map<Eigen::MatrixXd>edge_point(ep_gpu, F.rows(), 3);
+    Eigen::Map<Eigen::MatrixXi> moving_point_cover(moving_point_cover_gpu, F.rows(), 1);
+    Eigen::Map<Eigen::MatrixXi> before_cover(before_cover_gpu, F.rows(), 1);
+    Eigen::Map<Eigen::MatrixXi> next_cover(next_cover_gpu, F.rows(), 1);
     for (int i = 0; i < F.rows(); i++) {
         if (moving_point.row(i) == RowVector3d(0, 0, 0)) {
+            auto it = std::find(point_deleted.begin(), point_deleted.end(), i);
+            if (it == point_deleted.end()) {
+                auto newEnd = std::remove(point_in_cover[moving_point_cover(i, 0)].begin(), point_in_cover[moving_point_cover(i, 0)].end(), i);
+                point_in_cover[moving_point_cover(i, 0)].erase(newEnd, point_in_cover[moving_point_cover(i, 0)].end());
+                point_deleted.push_back(i);
+            }
             continue;
         }
         RowVector3d v1 = moving_point.row(i);
         RowVector3d v2 = edge_point.row(i);
         if ((v1 - v2).norm() <= B.moving_point_step) {
+            in_edge[i] = 1;
             //delete from the former cover
             auto newEnd = std::remove(point_in_cover[moving_point_cover(i, 0)].begin(), point_in_cover[moving_point_cover(i, 0)].end(), i);
             (point_in_cover[moving_point_cover(i, 0)]).erase(newEnd, point_in_cover[moving_point_cover(i, 0)].end());
@@ -299,7 +357,6 @@ void graph::check_point_in_edge()
                 std::uniform_int_distribution<int> distrib(0, point_in_cover[moving_point_cover(i, 0)].size()-1);
                 int to_be_delete = distrib(gen);
                 int point_id = point_in_cover[moving_point_cover(i, 0)][to_be_delete];
-                //cout << to_be_delete<<" "<< point_id << endl;
                 //删除点
                 auto newEnd = std::remove(point_in_cover[moving_point_cover(i, 0)].begin(), point_in_cover[moving_point_cover(i, 0)].end(), point_id);
                 (point_in_cover[moving_point_cover(i, 0)]).erase(newEnd, point_in_cover[moving_point_cover(i, 0)].end());
@@ -314,7 +371,6 @@ void graph::check_point_in_edge()
             moving_point.row(i) = edge_point.row(i);
             moving_point_cover(i, 0) = next_cover(i, 0);
             moving_point_direct.row(i) = K.row(moving_point_cover(i, 0));
-            cal_edge_point(i);
         }
     }
     add_point_in_empty_cover();
@@ -322,8 +378,12 @@ void graph::check_point_in_edge()
 
 void graph::restart()
 {
-    moving_point = C;
-    moving_point_direct = K;
+    size_t size = F.rows() * F.cols() * sizeof(double);
+    cudaMemcpy(mp_gpu, C.data(), size, cudaMemcpyHostToDevice);
+    cudaMemcpy(mpd_gpu, K.data(), size, cudaMemcpyHostToDevice);
+    Eigen::Map<Eigen::MatrixXi> before_cover(before_cover_gpu, F.rows(), 1);
+    Eigen::Map<Eigen::MatrixXi> next_cover(next_cover_gpu, F.rows(), 1);
+    Eigen::Map<Eigen::MatrixXi> moving_point_cover(moving_point_cover_gpu, F.rows(), 1);
     point_deleted.clear();
     cover_without_point.clear();
     for (int i = 0; i < F.rows(); i++) {
@@ -331,28 +391,11 @@ void graph::restart()
         before_cover(i, 0) = -1;
         point_in_cover[i].clear();
         point_in_cover[i].push_back(i);
+        in_edge[i] = 0;
     }
     for (int i = 0; i < F.rows(); i++) {
         graph::cal_edge_point(i);
     }
-}
-
-void graph::debug(igl::opengl::glfw::Viewer& viewer)
-{
-    viewer.data().point_size = B.point_size;
-    viewer.data().add_points(C, RowVector3d(0, 1, 0));
-    //viewer.data().add_points(edge_point, RowVector3d(1, 0, 0));
-    moving_point = edge_point;
-    moving_point_cover = next_cover;
-    for (int i = 0; i < F.rows(); i++) {
-        moving_point_direct.row(i) = K.row(next_cover(i, 0));
-        viewer.data().add_edges(edge_point.row(i), edge_point.row(i) + B.grad_line_length * K.row(next_cover(i, 0)), RowVector3d(0, 0, 0));
-    }
-    for (int i = 0; i < F.rows(); i++) {
-        cal_edge_point(i);
-    }
-    viewer.data().add_points(edge_point, RowVector3d(0, 0, 1));
-
 }
 
 

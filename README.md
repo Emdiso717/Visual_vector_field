@@ -11,7 +11,7 @@ Compile with the following instructions：
 
 ## Run
 
-Open the file `project.sln` to run the program in `vs2022` or later.
+Open the file `project.sln` to use the `Release` mode to run the program in `vs2022` or later.
 
 ## Parameter Adjustment
 
@@ -41,7 +41,7 @@ There is an `input.json` file in the project root file.Open the file to modify t
 
 > [!TIP]
 >
-> **Place the files you want to read in under the data folder in the root directory.This way you only need to fill in the name of the file.**
+> **Place the files you want to read in under the `./data` folder in the root directory.This way you only need to fill in the name of the file.**
 
 - The `show grad line` is used to control whether a vector direction line segment is displayed.
   - `1` is need to be displayed and `0` is not need.
@@ -56,3 +56,6 @@ There is an `input.json` file in the project root file.Open the file to modify t
 - The `camera zoom` controls the zoom of the lens.
 - The `time_restart` is the time to restart.
 
+## File
+
+The performance analysis and effects demonstration videos are stored in the `./doc&video` folder。

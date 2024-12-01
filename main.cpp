@@ -7,6 +7,7 @@ int main(int argc, char *argv[])
    config Config;
    string path = Config.path_of_mesh;
    graph G(path);
+
   // Plot the mesh
   igl::opengl::glfw::Viewer viewer;
   viewer.core().camera_zoom = Config.camera_zoom;

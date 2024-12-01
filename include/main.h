@@ -12,6 +12,7 @@
 #include <igl/ray_mesh_intersect.h>
 #include "graph.h"
 #include <nlohmann/json.hpp>
+#include <cuda_runtime.h>
 
 using namespace Eigen;
 using namespace std;

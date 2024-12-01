@@ -24,11 +24,16 @@ igl_include(imgui)
 #igl_include(restricted mosek)
 #igl_include(restricted triangle)
 
+enable_language(CUDA)
+
 # Add your project files
 include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(${CMAKE_SOURCE_DIR}/data)
+include_directories(${PROJECT_SOURCE_DIR}/eigen-3.4.0)
 file(GLOB SRC_FILES *.cpp)
-add_executable(${PROJECT_NAME} ${SRC_FILES})
+file(GLOB CUDA_SRC_FILES *.cu)
+add_executable(${PROJECT_NAME} "${SRC_FILES}"
+"${CUDA_SRC_FILES}")
 # Link igl (and the glfw module) to your project
 target_link_libraries(${PROJECT_NAME} PUBLIC 
   igl::glfw    igl::imgui
@@ -47,3 +52,12 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
   # igl_restricted::mosek
   # igl_restricted::triangle
   )
+
+# Find CUDA libraries
+find_package(CUDA REQUIRED)
+
+# Include CUDA Toolkit include directories
+include_directories(${CUDAToolkit_INCLUDE_DIRS})
+
+# Link CUDA libraries
+target_link_libraries(${PROJECT_NAME} PUBLIC ${CUDA_LIBRARIES})
