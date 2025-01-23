@@ -4,35 +4,34 @@
 
 int main(int argc, char *argv[])
 {
-   config Config;
-   string path = Config.path_of_mesh;
-   graph G(path);
-
-  // Plot the mesh
-  igl::opengl::glfw::Viewer viewer;
-  viewer.core().camera_zoom = Config.camera_zoom;
-  G.show_graph(viewer);
-  G.show_grad(viewer);
-  G.show_point(viewer);
-  // Define timing movements and resets
-  double last_time = glfwGetTime();
-  double start_tiem = glfwGetTime();
-  //Modify render operation
-  viewer.callback_pre_draw = [&](igl::opengl::glfw::Viewer& viewer) {
-      viewer.core().is_animating = true;
-      double t = glfwGetTime();
-      if (t - start_tiem >= Config.time_restart) {
-          viewer.data().clear_points();
-          G.restart();
-          start_tiem = glfwGetTime();
-          return false;
-      }
-      if (t - last_time >= Config.time_per_step) {
-          G.move_point(viewer);
-          G.check_point_in_edge();
-          last_time = t;
-      }
-      return false; 
-   };
-  viewer.launch();
+    // Read from OBJ file just for test
+    ifstream file("../input.json");
+    string json_str((istreambuf_iterator<char>(file)), istreambuf_iterator<char>());
+    string root = "../data/";
+    file.close();
+    json json_obj = json::parse(json_str);
+    string path_of_mesh = json_obj["path_of_mesh"];
+    string path_of_grad = json_obj["path_of_grad"];
+    string path = root + path_of_mesh;
+    path_of_grad = root + path_of_grad;
+    Eigen::MatrixXd v;
+    Eigen::MatrixXi f;
+    if (path.find(".obj") != std::string::npos) 
+    { 
+        igl::readOBJ(path, v, f); 
+    }
+    else {
+        igl::readOFF(path, v, f);
+    }
+    Eigen::MatrixXd hh = Eigen::MatrixXd(v.rows(), 1);
+    std::ifstream file1(path_of_grad);
+    std::string line;
+    int i = 0;
+    while (std::getline(file1, line)) {
+        hh(i, 0) = std::stod(line);
+        i++;
+    }
+    f.transposeInPlace();
+    v.transposeInPlace();
+	vector_feild_visualization(v,f,hh);
 }

@@ -106,30 +106,17 @@ void graph::add_point_in_empty_cover()
     cover_without_point.erase(cover_without_point.begin(), cover_without_point.begin()+ num_add);
 }
 
-graph::graph(string path)
+graph::graph(Eigen::MatrixXd vv, Eigen::MatrixXi ff,Eigen::MatrixXd hh)
 {   
-    //read from file
-    if (path.find(".obj") != std::string::npos) 
-    { 
-        igl::readOBJ(path, V, F); 
-    }
-    else {
-        igl::readOFF(path, V, F);
-    }
-    H = Eigen::MatrixXd(V.rows(), 1);
-    std::ifstream file(B.path_of_grad);
-    std::string line;
-    int i = 0;
-    while (std::getline(file, line)) {
-        H(i,0) = std::stod(line);
-        i++;
-    }
+    V = vv;
+    F = ff;
+    H = hh;
     // cal grad
     K = Eigen::MatrixXd(F.rows(), 3);
     grad();
     // find centers
     C = Eigen::MatrixXd(F.rows(), 3);
-
+    change_cover = Eigen::MatrixXd(F.rows(), 6);
    
     igl::barycenter(V, F, C);
     //basic of moving points
@@ -174,12 +161,14 @@ graph::graph(string path)
         //init the first cover condition
         (point_in_cover[i]).push_back(i);
         in_edge[i] = 0;
+        change_cover.row(i) = Eigen::RowVectorXd::Constant(6, -1);
     }
     for (int i = 0; i < F.rows(); i++) {
         graph::cal_edge_point(i);
     }
 }
 
+ 
 void graph::grad()
 {
     for (int i = 0; i < F.rows(); i++)
@@ -227,12 +216,39 @@ void graph::show_point(igl::opengl::glfw::Viewer& viewer)
 {
     Eigen::Map<Eigen::MatrixXd> moving_point(mp_gpu, F.rows(), 3);
     Eigen::Map<Eigen::MatrixXd>moving_point_direct(mpd_gpu, F.rows(), 3);
+    Eigen::Map<Eigen::MatrixXd>edge_point(ep_gpu, F.rows(), 3);
     viewer.data().point_size = B.point_size;
     double dis_each_point = B.length_of_point/B.num_points;
     float p_color = 1.0 / B.num_points;
-    for (int i = 0; i < B.num_points; i++) {
-        viewer.data().add_points(moving_point - dis_each_point * moving_point_direct * i, B.point_color + Eigen::RowVector3d(0,p_color,p_color)*i);
+    Eigen::MatrixXd point = MatrixXd(F.rows() * B.num_points, 3);
+    Eigen::MatrixXd color = MatrixXd(F.rows() * B.num_points, 3);
+    for (int i = 0; i < F.rows(); i++) {
+        int k = 0;
+        for (int j = 0; j < B.num_points; j++) {
+            RowVector3d temp, dir;
+            temp(0) = change_cover(i, 0);
+            temp(1) = change_cover(i, 1);
+            temp(2) = change_cover(i, 2);
+            dir(0) = change_cover(i, 3);
+            dir(1) = change_cover(i, 4);
+            dir(2) = change_cover(i, 5);
+            if ((dis_each_point * moving_point_direct.row(i) * j).norm() <= (moving_point.row(i) - temp).norm() || temp(0) == -1) {
+                point.row(i * B.num_points + j) = moving_point.row(i) - dis_each_point * moving_point_direct.row(i) * j;
+                color.row(i * B.num_points + j) = B.point_color + Eigen::RowVector3d(0, p_color, p_color) * j;
+            }
+            else
+            {
+                point.row(i * B.num_points + j) = temp - dis_each_point * dir * k;
+                color.row(i * B.num_points + j) = B.point_color + Eigen::RowVector3d(0, p_color, p_color) * j;
+                k++;
+            }
+        }
+
+        //for (int i = 0; i < B.num_points; i++) {
+        //    viewer.data().add_points(moving_point - dis_each_point * moving_point_direct * i, B.point_color + Eigen::RowVector3d(0,p_color,p_color)*i);
+        //}
     }
+    viewer.data().add_points(point, color);
 }
 
 void graph::move_point(igl::opengl::glfw::Viewer& viewer)
@@ -363,11 +379,19 @@ void graph::check_point_in_edge()
                 moving_point_direct.row(point_id) = RowVector3d(0, 0, 0);
                 moving_point.row(point_id) = RowVector3d(0, 0, 0);
                 edge_point.row(point_id) = RowVector3d(0, 0, 0);
+                change_cover.row(point_id) = Eigen::RowVectorXd::Constant(6, -1);
                 point_deleted.push_back(point_id);
                 if (i == to_be_delete) {
                     continue;
                 }
             }
+            change_cover(i, 0) = edge_point(i, 0);
+            change_cover(i, 1) = edge_point(i, 1);
+            change_cover(i, 2) = edge_point(i, 2);
+            change_cover(i, 3) = moving_point_direct(i, 0);
+            change_cover(i, 4) = moving_point_direct(i, 1);
+            change_cover(i, 5) = moving_point_direct(i, 2);
+
             moving_point.row(i) = edge_point.row(i);
             moving_point_cover(i, 0) = next_cover(i, 0);
             moving_point_direct.row(i) = K.row(moving_point_cover(i, 0));
@@ -392,6 +416,7 @@ void graph::restart()
         point_in_cover[i].clear();
         point_in_cover[i].push_back(i);
         in_edge[i] = 0;
+        change_cover.row(i) = Eigen::RowVectorXd::Constant(6, -1);
     }
     for (int i = 0; i < F.rows(); i++) {
         graph::cal_edge_point(i);

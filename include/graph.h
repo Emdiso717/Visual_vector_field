@@ -65,6 +65,7 @@ class graph
 		Eigen::MatrixXd C;	//中点
 		Eigen::MatrixXd H;	//点矢量值
 		Eigen::MatrixXi neighbor;	//面邻居
+		Eigen::MatrixXd change_cover;
 		int* neighbor_gpu;
 		int* f;
 		double * v;
@@ -87,7 +88,7 @@ class graph
 		double cal_next_edge_point(int i, int a, int b);
 		void add_point_in_empty_cover();
 	public:
-		graph(string path);
+		graph(Eigen::MatrixXd vv, Eigen::MatrixXi ff,Eigen::MatrixXd hh);
 		void grad();
 		void show_graph(igl::opengl::glfw::Viewer& viewer);
 		void show_grad(igl::opengl::glfw::Viewer& viewer);
